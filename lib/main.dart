@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 late Store<int> store;
 
 void main() {
+  store = Store<int>(initialState: 0);
   runApp(const MyApp());
 }
 
@@ -11,62 +12,99 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
+  Widget build(BuildContext context) => StoreProvider<int>(
+        store: store,
+        child: MaterialApp(
+          title: 'Flutter Async Redux',
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+            useMaterial3: true,
+          ),
+          home: const MyHomePageConnector(),
+        ),
+      );
+}
+
+// action to increment count by [amount]
+class IncrementAction extends ReduxAction<int> {
+  final int amount;
+
+  IncrementAction({required this.amount});
+
+  @override
+  int reduce() => state + amount;
+}
+
+// connector widget -> connects the store to the dumb widget(MyHomePage)
+class MyHomePageConnector extends StatelessWidget {
+  const MyHomePageConnector({Key? key}) : super(key: key);
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Async Redux',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+    return StoreConnector<int, ViewModel>(
+      vm: () => Factory(this),
+      builder: (BuildContext context, ViewModel vm) => MyHomePage(
+        counter: vm.counter,
+        onIncrement: vm.onIncrement,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
+// factory that creates a view model for the store connector
+class Factory extends VmFactory<int, MyHomePageConnector, ViewModel> {
+  Factory(connector) : super(connector);
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  ViewModel fromStore() => ViewModel(
+      counter: state, onIncrement: () => dispatch(IncrementAction(amount: 1)));
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+// view model -> helper to store connector:: holds part of store state that the dumb widget needs
+class ViewModel extends Vm {
+  final int counter;
+  final VoidCallback onIncrement;
 
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
+  ViewModel({
+    required this.counter,
+    required this.onIncrement,
+  }) : super(equals: [counter]);
+}
+
+// the dumb widget -> UI
+class MyHomePage extends StatelessWidget {
+  final int? counter;
+  final VoidCallback? onIncrement;
+  const MyHomePage({
+    super.key,
+    required this.counter,
+    required this.onIncrement,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        title: const Text('Flutter Async Redux Example'),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
+          children: [
+            const Text('You have pushed the button this many times'),
             Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+              '$counter',
+              style: const TextStyle(
+                fontSize: 30,
+              ),
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
+        onPressed: onIncrement,
         child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      ),
     );
   }
 }
